@@ -7,8 +7,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type App struct {
@@ -25,7 +27,9 @@ type Hero struct {
 var app App
 
 func init() {
-	db, err := sql.Open("mysql", "user:password@tcp(localhost:13306)/monitoringdb?charset=utf8")
+	// db, err := sql.Open("mysql", "user:password@tcp(localhost:13306)/monitoringdb?charset=utf8")
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("mysql", dbURL)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -45,11 +49,17 @@ func init() {
 
 func main() {
 	defer app.shutdown()
+	// providing the tracer manually
+	ddAgentAddr := os.Getenv("DATADOG_AGENT_ADDR")
+	tracer.Start(tracer.WithAgentAddr(ddAgentAddr))
+	defer tracer.Stop()
+
+	serverAddr := os.Getenv("APP_SERVER_ADDR")
 
 	http.HandleFunc("/", handleIndex)
 	http.Handle("/heroes", heroesHandler())
 	http.Handle("/favicon.ico", http.NotFoundHandler())
-	log.Fatal(http.ListenAndServe(":3001", nil))
+	log.Fatal(http.ListenAndServe(serverAddr, nil))
 }
 
 func checkErr(err error) {

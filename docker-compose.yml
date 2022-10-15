@@ -1,8 +1,27 @@
 version: '3.7'
 
 services:
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webapp
+    hostname: monitoringapp
+    ports:
+      - '3001:3001'
+    restart: always
+    environment:
+      DB_URL: 'user:password@tcp(mariadb)/monitoringdb?charset=utf8'
+      APP_SERVER_ADDR: ':3001'
+      DATADOG_AGENT_ADDR: 'datadog:8126'
+    links:
+      - mariadb
+    networks:
+      - my_network
   mariadb:
     image: mariadb:10.7
+    container_name: mariadb
+    hostname: mariadb
     restart: always
     ports:
       - '13306:3306'
@@ -11,3 +30,29 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD:  password
       MYSQL_DATABASE: monitoringdb
+    networks:
+      - my_network
+  datadog:
+    image: gcr.io/datadoghq/agent:7
+    container_name: dd-agent
+    hostname: datadog
+    restart: always
+    ports:
+      - '8126:8126'
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_SITE=datadoghq.eu
+      - DD_APM_ENABLED=true
+      - DD_HOSTNAME=monitoringapp
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+    links:
+      - webapp
+    networks:
+      - my_network
+
+networks:
+  my_network:
+    name: 'my-network'
