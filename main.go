@@ -10,6 +10,8 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
+	// httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
+	muxtrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/gorilla/mux"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -51,15 +53,20 @@ func main() {
 	defer app.shutdown()
 	// providing the tracer manually
 	ddAgentAddr := os.Getenv("DATADOG_AGENT_ADDR")
-	tracer.Start(tracer.WithAgentAddr(ddAgentAddr))
+	tracer.Start(
+		tracer.WithEnv("dev"),
+		tracer.WithService("monitoring-app"),
+		tracer.WithServiceVersion("1.0.0"),
+		tracer.WithAgentAddr(ddAgentAddr))
 	defer tracer.Stop()
 
-	serverAddr := os.Getenv("APP_SERVER_ADDR")
+	// mux := httptrace.NewServeMux()
+	mux := muxtrace.NewRouter()
 
-	http.HandleFunc("/", handleIndex)
-	http.Handle("/heroes", heroesHandler())
-	http.Handle("/favicon.ico", http.NotFoundHandler())
-	log.Fatal(http.ListenAndServe(serverAddr, nil))
+	mux.HandleFunc("/", handleIndex)
+	mux.Handle("/heroes", heroesHandler())
+	mux.Handle("/favicon.ico", http.NotFoundHandler())
+	log.Fatal(http.ListenAndServe(os.Getenv("APP_SERVER_ADDR"), nil))
 }
 
 func checkErr(err error) {
@@ -74,12 +81,22 @@ func (a *App) shutdown() {
 }
 
 func handleIndex(rw http.ResponseWriter, req *http.Request) {
+	// span := tracer.StartSpan("index.request", tracer.ResourceName("/"))
+	// defer span.Finish()
+	// span.SetTag("http.url", req.URL.Path)
+	// span.SetTag("index_tag_key", "index_tag_value")
+
 	_, err := io.WriteString(rw, "<h1>Monitoring App</h1>")
 	checkErr(err)
 }
 
 func heroesHandler() http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		// span := tracer.StartSpan("heroes.request", tracer.ResourceName("/heroes"))
+		// defer span.Finish()
+		// span.SetTag("http.url", req.URL.Path)
+		// span.SetTag("heroes_tag_key", "heroes_tag_value")
+
 		heroes, err := app.findAll()
 		if err != nil {
 			http.Error(rw, http.StatusText(500), http.StatusInternalServerError)

@@ -19,6 +19,7 @@ winpty docker exec -it <container_id> bash
 
 ## Database
 
+Populate DB with initial data:
 ```
 docker exec -it mariadb /bin/bash
 
